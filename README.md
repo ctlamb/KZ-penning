@@ -1,7 +1,7 @@
-Klinse-Za Penning Demography + Range Recolonization
+Klinse-Za Penning Demography
 ================
 Clayton Lamb
-10 May, 2021
+22 May, 2021
 
 ## Load Packages & Data
 
@@ -16,16 +16,18 @@ library(tidyverse)
 library(tidylog)
 library(infer)
 library(readxl)
+library(lme4)
 library(chisq.posthoc.test)
+options(scipen=999)
 source(here::here("functions","seasonalsurvival_fn.r"))
 
 #ADULT FEMALE SURVIVAL
-df <- read_excel(here::here("data","AllHerdsStartEndDates_210421.xlsx"))%>%
+df <- read_excel(here::here("data","demography", "AllHerdsStartEndDates_210421.xlsx"))%>%
   filter(herd%in%c("K","S"),
          Sex%in%"F")
   
 #ADULT FEMALE LOCATIOn (IN/OUT OF PEN)
-ad.cap <- read_excel(here::here("data","Klinse-za capture and demographics_210426.xlsx"),
+ad.cap <- read_excel(here::here("data","demography", "Klinse-za capture and demographics_210521.xlsx"),
                      sheet="Adult-Capt")%>%
       drop_na(CalendarYr)
 
@@ -45,20 +47,20 @@ pen <- tribble(
       free=ymd(out)%--%ymd(free_end))
 
 ##CALF SURVIVAL
-calf <- read_excel(here::here("data","Klinse-za capture and demographics_210506.xlsx"),
+calf <- read_excel(here::here("data","demography", "Klinse-za capture and demographics_210521.xlsx"),
                      sheet="Calf-Capt")%>%
     drop_na("Mom_ID")
 
 ##MORTS
-mort <- read_excel(here::here("data","Klinse-za capture and demographics_210426.xlsx"),
-                     sheet="Mortalities")
+# mort <- read_excel(here::here("data","demography", "Klinse-za capture and demographics_210521.xlsx"),
+#                      sheet="Mortalities")
 
 ##PARTURITION
-mm.part <- read_csv(here::here("data","MovementModelResults.csv"))%>%
+mm.part <- read_csv(here::here("data","demography", "MovementModelResults.csv"))%>%
   drop_na(Caribou_ID)
 
 ##CONDITION
-cond <- read_csv(here::here("data","KZONCP_Health_Year2_results_210422.csv"))
+cond <- read_csv(here::here("data","health", "KZONCP_Health_Year2_results_210422.csv"))
 ```
 
 ## Clean and Prep
@@ -243,7 +245,7 @@ summary <- surv%>%
   group_by(year,loc)%>%
   summarize(n_telem_surv=n_distinct(id))
 summary%>%filter(year>2013)%>%arrange(loc)%>%
-  left_join(read_excel(here::here("data","Klinse-za capture and demographics_210426.xlsx"),
+  left_join(read_excel(here::here("data","demography", "Klinse-za capture and demographics_210521.xlsx"),
                      sheet="Adult-Capt")%>%
       drop_na(CalendarYr)%>%
               select(id=WimsId, paste0("Capt",14:20))%>%
@@ -597,10 +599,10 @@ summary(m7)
     ## times.penned       0.4255     2.3501   0.27101    0.6681
     ## 
     ## Iterations: 6 outer, 23 Newton-Raphson
-    ##      Variance of random effect= 5e-07   I-likelihood = -72.1 
+    ##      Variance of random effect= 0.0000005   I-likelihood = -72.1 
     ## Degrees of freedom for terms= 1 1 1 0 
     ## Concordance= 0.862  (se = 0.037 )
-    ## Likelihood ratio test= 26.68  on 3 df,   p=7e-06
+    ## Likelihood ratio test= 26.68  on 3 df,   p=0.000007
 
 ``` r
 ggforest(m7, data=surv.pen)
@@ -759,7 +761,15 @@ ggplot(calf_born, aes(x=born_plot))+
 ``` r
 ggplot(calf_born, aes(x=born_plot))+
   geom_histogram()+
-  theme_ipsum()
+    theme_ipsum()+
+  labs(y="Count", x="Date", title="Parturition date in pen")+
+  theme(axis.title.x = element_text(size=15),
+        axis.title.y = element_text(size=15),
+        strip.text.x = element_text(size=15),
+        strip.text.y = element_text(size=15),
+        axis.text = element_text(size=10),
+        legend.text = element_text(size=13),
+        legend.title=element_text(size=15))
 ```
 
 ![](README_files/figure-gfm/model%20calf-2.png)<!-- -->
@@ -789,7 +799,7 @@ calf_surv <- calf%>%
 cor(calf_surv$year, calf_surv$ReleaseAge, use="complete.obs")
 ```
 
-    ## [1] 0.7337618
+    ## [1] 0.6752328
 
 ``` r
 ##model survival
@@ -816,7 +826,7 @@ summary(survfit(Surv(dur, dead)~ 1, data = calf_surv%>%filter(dur>0)), times = 3
     ##     0))
     ## 
     ##  time n.risk n.event survival std.err lower 95% CI upper 95% CI
-    ##   365     36      11    0.824  0.0483        0.735        0.925
+    ##   365     37      10    0.841  0.0462        0.756        0.937
 
 ``` r
 ##COXPH
@@ -832,29 +842,29 @@ model.sel(m1,m2,m3,m4,m5,m6,  rank="AICc")
 
     ## Model selection table 
     ##    (Intrc) Sex   RlsAg    year family      class df  logLik AICc delta weight
-    ## m3       +     -0.4621           (NA)      coxph  1 -29.993 62.7  0.00  0.411
-    ## m6       +             -0.3125   (NA)      coxph  1 -30.711 64.1  1.44  0.201
-    ## m1       +                       (NA) coxph.null  0 -32.131 64.3  1.61  0.184
-    ## m4       +   + -0.4337           (NA)      coxph  2 -29.703 65.8  3.15  0.085
-    ## m2       +   +                   (NA)      coxph  1 -31.704 66.1  3.42  0.074
-    ## m5       +   +         -0.3087   (NA)      coxph  2 -30.340 67.1  4.43  0.045
+    ## m3       +     -0.6430           (NA)      coxph  1 -28.322 59.3  0.00  0.639
+    ## m4       +   + -0.5665           (NA)      coxph  2 -27.487 61.4  2.06  0.228
+    ## m2       +   +                   (NA)      coxph  1 -31.017 64.7  5.39  0.043
+    ## m1       +                       (NA) coxph.null  0 -32.383 64.8  5.45  0.042
+    ## m6       +             -0.2621   (NA)      coxph  1 -31.362 65.4  6.08  0.031
+    ## m5       +   +         -0.2518   (NA)      coxph  2 -30.095 66.6  7.28  0.017
     ## Models ranked by AICc(x)
 
 ``` r
 cox.zph(m3)
 ```
 
-    ##            chisq df       p
-    ## ReleaseAge  13.9  1 0.00019
-    ## GLOBAL      13.9  1 0.00019
+    ##            chisq df      p
+    ## ReleaseAge  10.7  1 0.0011
+    ## GLOBAL      10.7  1 0.0011
 
 ``` r
 cox.zph(m6)
 ```
 
-    ##        chisq df      p
-    ## year    7.86  1 0.0051
-    ## GLOBAL  7.86  1 0.0051
+    ##        chisq df    p
+    ## year   0.613  1 0.43
+    ## GLOBAL 0.613  1 0.43
 
 ``` r
 ggcoxzph(m3%>%cox.zph)
@@ -876,20 +886,20 @@ summary(m3)
     ## coxph(formula = Surv(dur, dead) ~ ReleaseAge, data = calf_surv %>% 
     ##     drop_na(ReleaseAge))
     ## 
-    ##   n= 62, number of events= 8 
+    ##   n= 63, number of events= 8 
     ## 
-    ##               coef exp(coef) se(coef)      z Pr(>|z|)  
-    ## ReleaseAge -0.4621    0.6300   0.2337 -1.977   0.0481 *
+    ##               coef exp(coef) se(coef)      z Pr(>|z|)   
+    ## ReleaseAge -0.6430    0.5257   0.2396 -2.684  0.00728 **
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
     ##            exp(coef) exp(-coef) lower .95 upper .95
-    ## ReleaseAge      0.63      1.587    0.3984    0.9961
+    ## ReleaseAge    0.5257      1.902    0.3287    0.8408
     ## 
-    ## Concordance= 0.605  (se = 0.143 )
-    ## Likelihood ratio test= 4.27  on 1 df,   p=0.04
-    ## Wald test            = 3.91  on 1 df,   p=0.05
-    ## Score (logrank) test = 3.78  on 1 df,   p=0.05
+    ## Concordance= 0.694  (se = 0.132 )
+    ## Likelihood ratio test= 8.12  on 1 df,   p=0.004
+    ## Wald test            = 7.2  on 1 df,   p=0.007
+    ## Score (logrank) test = 7.04  on 1 df,   p=0.008
 
 ``` r
 ##proportional hazard violations. Mostly because calves died early (<100 days) early on, then later (>200 days) later on
@@ -915,7 +925,8 @@ calf.surv.monthly <- calf.surv.daily%>%
     group_by(id, ReleaseAge,month)%>%
     summarise(dur=sum(dur),
               dead=max(dead),
-              age=mean(age))
+              age=mean(age))%>%
+  left_join(calf_surv%>%select(id,year))
 
 
 ###try again
@@ -924,44 +935,39 @@ m1 <- coxph(Surv(dur, dead)~ 1, data =calf.surv.monthly)
 m2 <- coxph(Surv(dur, dead)~ ReleaseAge, data =calf.surv.monthly)
 m3 <- coxph(Surv(dur, dead)~ ReleaseAge + age, data =calf.surv.monthly)
 m4 <- coxph(Surv(dur, dead)~ ReleaseAge*age, data =calf.surv.monthly)
+m5 <- coxph(Surv(dur, dead)~ year+age, data =calf.surv.monthly)
+m6 <- coxph(Surv(dur, dead)~ year*age, data =calf.surv.monthly)
 
-model.sel(m1,m2,m3,m4,  rank="AICc")
+model.sel(m1,m2,m3,m4,m5,m6,  rank="AICc")
 ```
 
     ## Model selection table 
-    ##    (Int)     RlA       age  age:RlA family      class df  logLik  AICc delta weight
-    ## m4     + -1.0790 -0.051420 0.005464   (NA)      coxph  3 -44.323 100.6  0.00  0.376
-    ## m2     + -0.4914                      (NA)      coxph  1 -49.021 100.7  0.06  0.365
-    ## m1     +                              (NA) coxph.null  0 -51.313 102.6  1.98  0.140
-    ## m3     + -0.4505 -0.004699            (NA)      coxph  2 -48.267 102.9  2.29  0.120
+    ##    (Int)     RlA       age  age:RlA     yer  age:yer family      class df  logLik  AICc delta weight
+    ## m4     + -1.1840 -0.056750 0.005921                    (NA)      coxph  3 -41.210  94.4  0.00  0.601
+    ## m2     + -0.7142                                       (NA)      coxph  1 -46.870  96.4  1.99  0.223
+    ## m3     + -0.6182 -0.007008                             (NA)      coxph  2 -45.344  97.1  2.67  0.158
+    ## m5     +         -0.008282          -0.2537            (NA)      coxph  2 -48.298 103.0  8.58  0.008
+    ## m1     +                                               (NA) coxph.null  0 -51.547 103.1  8.67  0.008
+    ## m6     +         -6.756000          -0.5663 0.003345   (NA)      coxph  3 -47.265 106.5 12.11  0.001
     ## Models ranked by AICc(x)
 
 ``` r
 cox.zph(m2)
 ```
 
-    ##            chisq df    p
-    ## ReleaseAge 0.473  1 0.49
-    ## GLOBAL     0.473  1 0.49
-
-``` r
-cox.zph(m3)
-```
-
-    ##            chisq df    p
-    ## ReleaseAge 0.393  1 0.53
-    ## age        0.833  1 0.36
-    ## GLOBAL     1.075  2 0.58
+    ##              chisq df    p
+    ## ReleaseAge 0.00209  1 0.96
+    ## GLOBAL     0.00209  1 0.96
 
 ``` r
 cox.zph(m4)
 ```
 
-    ##                chisq df    p
-    ## ReleaseAge     0.138  1 0.71
-    ## age            0.526  1 0.47
-    ## ReleaseAge:age 0.446  1 0.50
-    ## GLOBAL         0.574  3 0.90
+    ##                 chisq df    p
+    ## ReleaseAge     0.0239  1 0.88
+    ## age            0.5211  1 0.47
+    ## ReleaseAge:age 0.2984  1 0.58
+    ## GLOBAL         1.7948  3 0.62
 
 ``` r
 summary(m4)
@@ -970,48 +976,24 @@ summary(m4)
     ## Call:
     ## coxph(formula = Surv(dur, dead) ~ ReleaseAge * age, data = calf.surv.monthly)
     ## 
-    ##   n= 641, number of events= 8 
+    ##   n= 647, number of events= 8 
     ## 
     ##                     coef exp(coef)  se(coef)      z Pr(>|z|)    
-    ## ReleaseAge     -1.079292  0.339836  0.318915 -3.384 0.000714 ***
-    ## age            -0.051422  0.949877  0.015120 -3.401 0.000672 ***
-    ## ReleaseAge:age  0.005464  1.005479  0.001613  3.387 0.000706 ***
+    ## ReleaseAge     -1.184337  0.305949  0.316390 -3.743 0.000182 ***
+    ## age            -0.056749  0.944831  0.015838 -3.583 0.000340 ***
+    ## ReleaseAge:age  0.005921  1.005939  0.001657  3.573 0.000352 ***
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
     ##                exp(coef) exp(-coef) lower .95 upper .95
-    ## ReleaseAge        0.3398     2.9426    0.1819    0.6349
-    ## age               0.9499     1.0528    0.9221    0.9784
-    ## ReleaseAge:age    1.0055     0.9946    1.0023    1.0087
+    ## ReleaseAge        0.3059     3.2685    0.1646    0.5688
+    ## age               0.9448     1.0584    0.9160    0.9746
+    ## ReleaseAge:age    1.0059     0.9941    1.0027    1.0092
     ## 
-    ## Concordance= 0.746  (se = 0.102 )
-    ## Likelihood ratio test= 13.98  on 3 df,   p=0.003
-    ## Wald test            = 19.11  on 3 df,   p=3e-04
-    ## Score (logrank) test = 19.1  on 3 df,   p=3e-04
-
-``` r
-summary(m3)
-```
-
-    ## Call:
-    ## coxph(formula = Surv(dur, dead) ~ ReleaseAge + age, data = calf.surv.monthly)
-    ## 
-    ##   n= 641, number of events= 8 
-    ## 
-    ##                 coef exp(coef)  se(coef)      z Pr(>|z|)  
-    ## ReleaseAge -0.450454  0.637338  0.229431 -1.963   0.0496 *
-    ## age        -0.004699  0.995312  0.003987 -1.179   0.2385  
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-    ## 
-    ##            exp(coef) exp(-coef) lower .95 upper .95
-    ## ReleaseAge    0.6373      1.569    0.4065    0.9992
-    ## age           0.9953      1.005    0.9876    1.0031
-    ## 
-    ## Concordance= 0.612  (se = 0.136 )
-    ## Likelihood ratio test= 6.09  on 2 df,   p=0.05
-    ## Wald test            = 6.07  on 2 df,   p=0.05
-    ## Score (logrank) test = 5.98  on 2 df,   p=0.05
+    ## Concordance= 0.805  (se = 0.098 )
+    ## Likelihood ratio test= 20.67  on 3 df,   p=0.0001
+    ## Wald test            = 26.99  on 3 df,   p=0.000006
+    ## Score (logrank) test = 31.69  on 3 df,   p=0.0000006
 
 ``` r
 summary(m2)
@@ -1020,28 +1002,28 @@ summary(m2)
     ## Call:
     ## coxph(formula = Surv(dur, dead) ~ ReleaseAge, data = calf.surv.monthly)
     ## 
-    ##   n= 641, number of events= 8 
+    ##   n= 647, number of events= 8 
     ## 
-    ##               coef exp(coef) se(coef)      z Pr(>|z|)  
-    ## ReleaseAge -0.4914    0.6118   0.2370 -2.074   0.0381 *
+    ##               coef exp(coef) se(coef)      z Pr(>|z|)   
+    ## ReleaseAge -0.7142    0.4896   0.2434 -2.934  0.00335 **
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
     ##            exp(coef) exp(-coef) lower .95 upper .95
-    ## ReleaseAge    0.6118      1.635    0.3845    0.9734
+    ## ReleaseAge    0.4896      2.042    0.3038     0.789
     ## 
-    ## Concordance= 0.574  (se = 0.148 )
-    ## Likelihood ratio test= 4.59  on 1 df,   p=0.03
-    ## Wald test            = 4.3  on 1 df,   p=0.04
-    ## Score (logrank) test = 4.08  on 1 df,   p=0.04
+    ## Concordance= 0.668  (se = 0.144 )
+    ## Likelihood ratio test= 9.35  on 1 df,   p=0.002
+    ## Wald test            = 8.61  on 1 df,   p=0.003
+    ## Score (logrank) test = 8.07  on 1 df,   p=0.004
 
 ``` r
 calf.pred.boot <- data.frame()
 ##Boot for plot to show uncertainty
 for(i in 1:1000){
-  m3.i <- coxph(Surv(dur, dead)~ ReleaseAge*age, data = calf.surv.monthly%>%sample_frac(1,replace=TRUE))
+  m3.i <- coxph(Surv(dur, dead)~ ReleaseAge + age, data = calf.surv.monthly%>%sample_frac(1,replace=TRUE))
  
-  calf.pred.i <- expand.grid(ReleaseAge=5:12, age=seq(0,360,by=20), dur=365, dead=0, iter=i) 
+  calf.pred.i <- expand.grid(ReleaseAge=5:12, age=seq(0,360,by=20), dur=30, dead=0, iter=i) 
   
   calf.pred.i$pred <- exp(-predict(m3.i, newdata=calf.pred.i, type="expected"))
   calf.pred.i$pred
@@ -1051,6 +1033,7 @@ for(i in 1:1000){
 
 calf.pred.boot%>%
          drop_na()%>%
+         mutate(pred=pred^12)%>%
          group_by(ReleaseAge,age)%>%
          summarize(median=median(pred))%>%
   ggplot()+
@@ -1060,21 +1043,9 @@ calf.pred.boot%>%
 ![](README_files/figure-gfm/model%20calf-8.png)<!-- -->
 
 ``` r
-calf.pred.boot <- data.frame()
-##Boot for plot to show uncertainty
-for(i in 1:1000){
-  m3.i <- coxph(Surv(dur, dead)~ ReleaseAge, data = calf.surv.monthly%>%sample_frac(1,replace=TRUE))
- 
-  calf.pred.i <- expand.grid(ReleaseAge=5:14,  dur=365, dead=0, iter=i) 
-  
-  calf.pred.i$pred <- exp(-predict(m3.i, newdata=calf.pred.i, type="expected"))
-  calf.pred.i$pred
-  calf.pred.boot <- rbind(calf.pred.boot,calf.pred.i)
-}
-
-
 ggplot(data=calf.pred.boot%>%
          drop_na()%>%
+         mutate(pred=pred^12)%>%
          group_by(ReleaseAge)%>%
          summarize(median=median(pred), lower=quantile(pred,0.025), upper=quantile(pred,0.975), se=sd(pred))%>%
          mutate(upper2=case_when(median+se>1~1, TRUE~median+se)), aes(x=ReleaseAge*7,y=median))+
@@ -1096,6 +1067,7 @@ ggplot(data=calf.pred.boot%>%
 ``` r
 ggplot(data=calf.pred.boot%>%
          drop_na()%>%
+         mutate(pred=pred^12)%>%
          group_by(ReleaseAge,iter)%>%
          summarize(median=median(pred), lower=quantile(pred,0.025), upper=quantile(pred,0.975), se=sd(pred))%>%
          mutate(upper2=case_when(median+se>1~1, TRUE~median+se)), aes(x=ReleaseAge*7,y=median, group=iter))+
@@ -1192,6 +1164,7 @@ rep_sample_n(size = nrow(part.preg), replace = TRUE, reps = 1000)%>%
 ![](README_files/figure-gfm/part-1.png)<!-- -->
 
 ``` r
+##difference in parturition?
 part.preg%>%
 rep_sample_n(size = nrow(part.preg), replace = TRUE, reps = 10000)%>%
   group_by(replicate,loc,class)%>%
@@ -1217,6 +1190,505 @@ model.sel(null,m1)
 
     ## Model selection table 
     ##      (Intrc) loc          family df  logLik  AICc delta weight
-    ## m1    1.1790   + binomial(logit)  2 -64.625 133.4  0.00    0.6
-    ## null  0.9605     binomial(logit)  1 -66.068 134.2  0.81    0.4
+    ## null  0.8391     binomial(logit)  1 -71.029 144.1  0.00  0.534
+    ## m1    0.9963   + binomial(logit)  2 -70.130 144.4  0.27  0.466
     ## Models ranked by AICc(x)
+
+## Get data for Avalanches (not run on git, requires some manual moving of tifs, loaded below)
+
+``` r
+#https://avalanche.org/wp-content/uploads/2018/08/06_TAR_McCollisterBirkeland.pdf
+#https://www.pc.gc.ca/en/pn-np/mtn/securiteenmontagne-mountainsafety/avalanche/echelle-ratings#scale
+
+##get slope
+##canopy
+#roughness
+library(rgee)
+library(sf)
+library(raster)
+ee_Initialize(email="lamb.eco.research@gmail.com")
+st_erase = function(x, y) st_difference(x, st_union(st_combine(y)))
+
+##load collars
+mcnay <- read_excel(here::here("data", "telem","KlinseZaAllCollars_210418.xlsx"),
+                    sheet="KlinseZaAll_210418")%>%
+  drop_na(easting)%>%
+  st_as_sf(coords=c("easting", "northing"),
+        crs=26910)
+
+mcnay <- mcnay%>%
+  mutate(Da=str_sub(date_time,0,2),
+         Mo=str_sub(date_time,3,5),
+         Yr=paste0(20,str_sub(date_time,6,7)),
+         Hr=str_sub(date_time,9,10),
+         Mn=str_sub(date_time,12,13))%>%
+  mutate(datetime=paste0(paste(Yr,Mo,Da,sep="-")," ",paste(Hr,Mn,"00",sep=":"))%>%ymd_hms(),
+         Year_=year(datetime))
+
+##towns to clip from telem data (offices collars left on in)
+towns <- tribble(~name,~lat,~long,
+                 "FSJ", 56.25161403173337, -120.84545438805684,
+                 "Mack", 55.3353229828063, -123.0967602935136,
+                 "john2", 56.29403813690339, -121.07640843139947)%>%
+  st_as_sf(coords=c("long","lat"), crs=4326)%>%
+  st_transform(26910)
+
+
+##remove any locs within the pen and in town
+mcnay <- mcnay%>%
+  filter(!locn_id%in%c(106995, 32280,1035040))%>%
+  st_erase(towns%>%st_as_sf%>%st_buffer(1000))
+
+poly <- sf_as_ee(st_bbox(mcnay)%>%st_as_sfc%>%st_buffer(10000)%>%st_transform(4326))
+
+Map$addLayer(
+  eeObject = poly
+)
+
+##set pallete
+palette = c("#000004FF","#781C6DFF","#ED6925FF","#FCFFA4FF")
+
+##get layerselev <-
+elev <-ee$
+  Image('USGS/SRTMGL1_003')$
+  select('elevation')$
+  clip(poly)
+
+slope <- ee$Terrain$slope(elev)$
+  clip(poly)
+
+topo.diver <- ee$
+  Image('CSP/ERGo/1_0/Global/SRTM_topoDiversity')$
+  select('constant')$
+  clip(poly)
+
+cc <- ee$
+  ImageCollection('NASA/MEASURES/GFCC/TC/v3')$
+  select('tree_canopy_cover')$
+  filterDate("2010-01-01","2015-12-31")$
+  mean()$
+  clip(poly)
+
+cc2 <- ee$
+  ImageCollection("MODIS/006/MOD44B")$
+  select("Percent_Tree_Cover")$
+    filterDate("2014-01-01", "2020-12-31")$
+    mean()$
+    clip(poly)
+
+##PLOT
+Map$setCenter(-122.5, 55.5, 7)
+Map$addLayer(
+  eeObject = slope,
+  list(min=0, max=40, palette = palette)
+)
+
+Map$addLayer(
+  eeObject = topo.diver,
+  list(min=0, max=1, palette = palette)
+)
+
+Map$addLayer(
+  eeObject = cc,
+  list(min=0, max=100, palette = palette)
+)
+
+Map$addLayer(
+  eeObject = cc2,
+  list(min=0, max=100, palette = palette)
+)
+
+##download rasters
+  lyrs <- list(slope, topo.diver, cc)
+  lyrs.names <- c("slope", "topo.diver", "cc")
+  
+  for(j in 1:length(lyrs)){
+    ee_image_to_drive(
+      image = lyrs[[j]],
+      description = paste0(lyrs.names[j]),
+      fileNamePrefix=paste0(lyrs.names[j]),
+      timePrefix = FALSE,
+      folder = "PenningLayers",
+      scale = 30,
+      maxPixels = 1.0E13,
+      fileFormat= 'GeoTIFF',
+      crs="EPSG:26910",
+      region=poly,
+      skipEmptyTiles= TRUE
+    )$start()
+  }
+ee_monitoring(eeTaskList=TRUE)
+```
+
+## Prep avalanche layers
+
+``` r
+##load rasters
+rastlist <- list.files(path =here::here("data","spatial","avalanche"), pattern='.tif$', all.files=TRUE, full.names=TRUE)
+allrasters <- stack(rastlist)
+plot(allrasters)
+```
+
+![](README_files/figure-gfm/Avalanches%20prep-1.png)<!-- -->
+
+``` r
+##fix NA's in cc
+values(allrasters[["cc"]])[is.na(values(allrasters[["cc"]]))] <- 0
+
+##make avy risk layer
+##start by reclassing
+allrasters.reclass <- allrasters
+
+allrasters.reclass[["cc"]] <- reclassify(allrasters.reclass[["cc"]],
+                     matrix(c(-Inf, 5, 3,
+                              5, 30, 2,
+                              30, Inf, 1),
+                ncol = 3,
+                byrow = TRUE))
+
+#plot(allrasters.reclass[["cc"]])
+
+
+allrasters.reclass[["slope"]] <- reclassify(allrasters.reclass[["slope"]],
+                     matrix(c(-Inf, 25, 1,
+                              30, 45, 3,
+                              25, 30, 2,
+                              45,Inf,2),
+                ncol = 3,
+                byrow = TRUE))
+#plot(allrasters.reclass[["slope"]])
+
+allrasters.reclass[["topo.diver"]] <- reclassify(allrasters.reclass[["topo.diver"]],
+                     matrix(c(-Inf, 0.33, 1,
+                              0.33, 0.66, 2,
+                              0.66, Inf, 3),
+                ncol = 3,
+                byrow = TRUE))
+
+#plot(allrasters.reclass[["topo.diver"]])
+
+
+avy <- calc(allrasters.reclass, sum)/3
+
+##make anything with a slope of <3 (lakes etc, a 1)
+slope0 <- allrasters[["slope"]]
+slope0 <- (slope0<3)*100
+
+
+avy <- slope0+avy
+values(avy)[values(avy)>50] <- 1
+```
+
+## Plot Avalanche map
+
+``` r
+plot(avy)
+```
+
+![](README_files/figure-gfm/Avalanches%20map-1.png)<!-- -->
+
+## Add avalanche data to telemetry and then to survival
+
+``` r
+mcnay.avy <- mcnay%>%
+    filter(animal_id%in%surv.pen$id,
+           Year_>=2014)%>%
+    dplyr::mutate(avy=raster::extract(avy, .))%>%
+  mutate(PenSeason=NA_character_,
+         year=NA_real_)
+
+
+pen.long <- pen%>%dplyr::select(year,penned,free)%>%
+  pivot_longer(-year)%>%
+  filter(year<2021)
+
+##summarize across penned and unpenned seasons and years
+
+for(i in 1:nrow(pen.long)){
+
+  mcnay.avy<- mcnay.avy%>%
+    dplyr::mutate(PenSeason=dplyr::case_when(datetime %within% pen.long[i,]$value~pen.long[i,]$name,
+           TRUE~PenSeason),
+           year=case_when(datetime %within% pen.long[i,]$value~pen.long[i,]$year,
+           TRUE~year))
+}
+
+
+
+  mcnay.avy.summary <-   mcnay.avy%>%
+    tibble%>%
+    group_by(animal_id,PenSeason,year)%>%
+    summarise(avy=mean(avy,na.rm=TRUE))%>%
+    rename(id=animal_id)%>%
+    mutate(PenSeason=case_when(PenSeason%in%"penned"~"Pen", 
+                          PenSeason%in%"free"~"Free"))
+
+
+  ##join with survival data
+surv.pen <- surv.pen%>%
+  left_join(mcnay.avy.summary, by=c("id","PenSeason","year"))
+
+##one animal with missing avy data
+##use avergae for animal in other years 1.5 for 314 and 2.1 for 352
+
+surv.pen <- surv.pen%>%
+  mutate(avy=case_when(id%in%"CN352S" & year %in%2015~2.1,
+                       id%in%"CN314K" & year %in%2015~1.5,
+                       TRUE~avy))
+
+
+ggplot(surv.pen%>%filter(PenSeason%in%"Free"),aes(x=avy, fill=PennedThatYear))+
+  geom_density(alpha=0.6)+
+      theme_ipsum()+
+  labs(y="Count", x="Avalanche rating")+
+  theme(axis.title.x = element_text(size=15),
+        axis.title.y = element_text(size=15),
+        strip.text.x = element_text(size=15),
+        strip.text.y = element_text(size=15),
+        axis.text = element_text(size=10),
+        legend.text = element_text(size=13),
+        legend.title=element_text(size=15))
+```
+
+![](README_files/figure-gfm/Avalanches%20to%20telem%20data-1.png)<!-- -->
+
+## Model survival with avalanche risk
+
+``` r
+##COXPH survival
+m1 <- coxph(Surv(dur, dead)~ 1 +
+              frailty(id), data = surv.pen)
+m2 <- coxph(Surv(dur, dead)~ PenSeason +
+              frailty(id), data = surv.pen)
+m3 <- coxph(Surv(dur, dead)~ PenSeason + PennedThatYear +
+              frailty(id), data = surv.pen)
+m4 <- coxph(Surv(dur, dead)~ PenSeason + PennedThatYear + avy +
+              frailty(id), data = surv.pen)
+
+model.sel(m1,m2,m3,m4,  rank="AICc")
+```
+
+    ## Model selection table 
+    ##    (Int) frl(id) PnS PTY     avy family df   logLik  AICc delta weight
+    ## m4     +       +   +   + -0.4557   (NA)  5  -97.269 209.2  0.00      1
+    ## m3     +       +   +   +           (NA)  6 -102.117 225.6 16.38      0
+    ## m1     +       +                   (NA)  7 -102.791 230.5 21.29      0
+    ## m2     +       +   +               (NA)  9 -100.263 237.6 28.45      0
+    ## Models ranked by AICc(x)
+
+``` r
+summary(m5)
+```
+
+    ## Call:
+    ## coxph(formula = Surv(dur, dead) ~ year + age, data = calf.surv.monthly)
+    ## 
+    ##   n= 647, number of events= 8 
+    ## 
+    ##           coef exp(coef)  se(coef)      z Pr(>|z|)  
+    ## year -0.253687  0.775934  0.185456 -1.368   0.1713  
+    ## age  -0.008282  0.991753  0.004485 -1.847   0.0648 .
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ##      exp(coef) exp(-coef) lower .95 upper .95
+    ## year    0.7759      1.289    0.5395     1.116
+    ## age     0.9918      1.008    0.9831     1.001
+    ## 
+    ## Concordance= 0.715  (se = 0.106 )
+    ## Likelihood ratio test= 6.5  on 2 df,   p=0.04
+    ## Wald test            = 5.8  on 2 df,   p=0.06
+    ## Score (logrank) test = 6.47  on 2 df,   p=0.04
+
+``` r
+##COXPH survival
+m1 <- coxph(Surv(dur, dead)~ 1 , data = surv.pen%>%filter(PenSeason%in%"Free"))
+m2 <- coxph(Surv(dur, dead)~ PennedThatYear , data = surv.pen%>%filter(PenSeason%in%"Free"))
+m3 <- coxph(Surv(dur, dead)~ PennedThatYear + avy , data = surv.pen%>%filter(PenSeason%in%"Free"))
+m4 <- coxph(Surv(dur, dead)~ PennedThatYear*avy , data = surv.pen%>%filter(PenSeason%in%"Free"))
+
+
+model.sel(m1,m2,m3,m4,  rank="AICc")
+```
+
+    ## Model selection table 
+    ##    (Int) PTY    avy avy:PTY family      class df  logLik  AICc delta weight
+    ## m4     +   + -7.955       +   (NA)      coxph  3 -81.227 170.2  0.00  0.559
+    ## m2     +   +                  (NA)      coxph  1 -84.725 171.7  1.53  0.260
+    ## m3     +   + -1.038           (NA)      coxph  2 -84.466 173.7  3.56  0.094
+    ## m1     +                      (NA) coxph.null  0 -86.951 173.9  3.74  0.086
+    ## Models ranked by AICc(x)
+
+``` r
+summary(m3)
+```
+
+    ## Call:
+    ## coxph(formula = Surv(dur, dead) ~ PennedThatYear + avy, data = surv.pen %>% 
+    ##     filter(PenSeason %in% "Free"))
+    ## 
+    ##   n= 150, number of events= 18 
+    ## 
+    ##                    coef exp(coef) se(coef)      z Pr(>|z|)  
+    ## PennedThatYearW  1.0963    2.9930   0.5116  2.143   0.0321 *
+    ## avy             -1.0385    0.3540   1.4696 -0.707   0.4798  
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ##                 exp(coef) exp(-coef) lower .95 upper .95
+    ## PennedThatYearW     2.993     0.3341   1.09797     8.159
+    ## avy                 0.354     2.8249   0.01986     6.309
+    ## 
+    ## Concordance= 0.673  (se = 0.052 )
+    ## Likelihood ratio test= 4.97  on 2 df,   p=0.08
+    ## Wald test            = 4.67  on 2 df,   p=0.1
+    ## Score (logrank) test = 5.05  on 2 df,   p=0.08
+
+``` r
+summary(m4)
+```
+
+    ## Call:
+    ## coxph(formula = Surv(dur, dead) ~ PennedThatYear * avy, data = surv.pen %>% 
+    ##     filter(PenSeason %in% "Free"))
+    ## 
+    ##   n= 150, number of events= 18 
+    ## 
+    ##                               coef      exp(coef)       se(coef)      z Pr(>|z|)  
+    ## PennedThatYearW      -13.531063089    0.000001329    5.962422028 -2.269   0.0232 *
+    ## avy                   -7.954821128    0.000350966    3.404610944 -2.336   0.0195 *
+    ## PennedThatYearW:avy    8.884464354 7218.946839291    3.723799051  2.386   0.0170 *
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ##                          exp(coef)     exp(-coef)        lower .95     upper .95
+    ## PennedThatYearW        0.000001329 752429.8804457 0.00000000001118        0.1580
+    ## avy                    0.000350966   2849.2786269 0.00000044386918        0.2775
+    ## PennedThatYearW:avy 7218.946839291      0.0001385 4.88394028400742 10670317.4974
+    ## 
+    ## Concordance= 0.711  (se = 0.053 )
+    ## Likelihood ratio test= 11.45  on 3 df,   p=0.01
+    ## Wald test            = 6.76  on 3 df,   p=0.08
+    ## Score (logrank) test = 8.63  on 3 df,   p=0.03
+
+``` r
+ggforest(m3, data=surv.pen)
+```
+
+![](README_files/figure-gfm/Avalanches%20and%20survival-1.png)<!-- -->
+
+``` r
+avy.dat <- expand.grid(PennedThatYear=c("W","P"), avy=seq(1.4,2.2, by=0.1), dur=250, dead=0) 
+  
+avy.dat$pred <- exp(-predict(m4, newdata=avy.dat, type="expected"))
+
+##run by P vs W alone
+m2w <- coxph(Surv(dur, dead)~ avy , data = surv.pen%>%filter(PenSeason%in%"Free" & PennedThatYear%in%"W"))
+m2p <- coxph(Surv(dur, dead)~ avy , data = surv.pen%>%filter(PenSeason%in%"Free" & PennedThatYear%in%"P"))
+
+summary(m2w)
+```
+
+    ## Call:
+    ## coxph(formula = Surv(dur, dead) ~ avy, data = surv.pen %>% filter(PenSeason %in% 
+    ##     "Free" & PennedThatYear %in% "W"))
+    ## 
+    ##   n= 67, number of events= 12 
+    ## 
+    ##       coef exp(coef) se(coef)     z Pr(>|z|)
+    ## avy 0.8967    2.4516   1.5142 0.592    0.554
+    ## 
+    ##     exp(coef) exp(-coef) lower .95 upper .95
+    ## avy     2.452     0.4079    0.1261     47.68
+    ## 
+    ## Concordance= 0.498  (se = 0.095 )
+    ## Likelihood ratio test= 0.34  on 1 df,   p=0.6
+    ## Wald test            = 0.35  on 1 df,   p=0.6
+    ## Score (logrank) test = 0.35  on 1 df,   p=0.6
+
+``` r
+summary(m2p)
+```
+
+    ## Call:
+    ## coxph(formula = Surv(dur, dead) ~ avy, data = surv.pen %>% filter(PenSeason %in% 
+    ##     "Free" & PennedThatYear %in% "P"))
+    ## 
+    ##   n= 83, number of events= 6 
+    ## 
+    ##           coef  exp(coef)   se(coef)      z Pr(>|z|)  
+    ## avy -7.4450714  0.0005843  3.2901929 -2.263   0.0236 *
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ##     exp(coef) exp(-coef)    lower .95 upper .95
+    ## avy 0.0005843       1711 0.0000009248    0.3692
+    ## 
+    ## Concordance= 0.78  (se = 0.082 )
+    ## Likelihood ratio test= 6.06  on 1 df,   p=0.01
+    ## Wald test            = 5.12  on 1 df,   p=0.02
+    ## Score (logrank) test = 5.66  on 1 df,   p=0.02
+
+``` r
+##does avalanche exposure differ between groups?
+m1 <- lmer(avy ~  PennedThatYear + (1|id)+ (1|year), data = surv.pen%>%filter(PenSeason%in%"Free"),
+                   REML = FALSE)
+summary(m1)
+```
+
+    ## Linear mixed model fit by maximum likelihood  ['lmerMod']
+    ## Formula: avy ~ PennedThatYear + (1 | id) + (1 | year)
+    ##    Data: surv.pen %>% filter(PenSeason %in% "Free")
+    ## 
+    ##      AIC      BIC   logLik deviance df.resid 
+    ##   -143.4   -128.4     76.7   -153.4      145 
+    ## 
+    ## Scaled residuals: 
+    ##     Min      1Q  Median      3Q     Max 
+    ## -3.1743 -0.5381  0.0548  0.4246  3.6577 
+    ## 
+    ## Random effects:
+    ##  Groups   Name        Variance Std.Dev.
+    ##  id       (Intercept) 0.011441 0.10696 
+    ##  year     (Intercept) 0.005332 0.07302 
+    ##  Residual             0.013233 0.11504 
+    ## Number of obs: 150, groups:  id, 44; year, 7
+    ## 
+    ## Fixed effects:
+    ##                 Estimate Std. Error t value
+    ## (Intercept)      1.70043    0.03511  48.438
+    ## PennedThatYearW  0.08135    0.02066   3.938
+    ## 
+    ## Correlation of Fixed Effects:
+    ##             (Intr)
+    ## PenndThtYrW -0.264
+
+``` r
+lm(avy ~ PennedThatYear, data = surv.pen%>%filter(PenSeason%in%"Free"))%>%summary()
+```
+
+    ## 
+    ## Call:
+    ## lm(formula = avy ~ PennedThatYear, data = surv.pen %>% filter(PenSeason %in% 
+    ##     "Free"))
+    ## 
+    ## Residuals:
+    ##      Min       1Q   Median       3Q      Max 
+    ## -0.36129 -0.13090 -0.00987  0.09986  0.48061 
+    ## 
+    ## Coefficients:
+    ##                 Estimate Std. Error t value             Pr(>|t|)    
+    ## (Intercept)      1.69623    0.01854  91.474 < 0.0000000000000002 ***
+    ## PennedThatYearW  0.09245    0.02775   3.332              0.00109 ** 
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Residual standard error: 0.1689 on 148 degrees of freedom
+    ## Multiple R-squared:  0.06979,    Adjusted R-squared:  0.0635 
+    ## F-statistic:  11.1 on 1 and 148 DF,  p-value: 0.001089
+
+``` r
+surv.pen%>%filter(PenSeason%in%"Free")%>%
+  group_by(PennedThatYear)%>%
+  summarise(mean=mean(avy))
+```
