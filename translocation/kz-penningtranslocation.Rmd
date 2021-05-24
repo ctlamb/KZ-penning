@@ -405,7 +405,7 @@ pen.loc.plot
 
 
 ## Calculate distance from pen after release
-```{r disto, message=FALSE, warning=FALSE}
+```{r disto, fig.height=14, fig.width=11, message=FALSE, warning=FALSE}
 ###DISTO
 roch.telem.dist <- read_excel(here::here("data", "telem","KlinseZaAllCollars_210418.xlsx"),
                               sheet="KlinseZaAll_210418")%>%
