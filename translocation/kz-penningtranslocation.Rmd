@@ -27,8 +27,10 @@ library(amt)
 library(tidyverse)
 library(tidygraph)
 library(ggraph)
+library(units)
 library(ggpubr)
 library(tabularaster)
+librar
 library(tidylog)
 
 
@@ -401,8 +403,86 @@ pen.loc.plot
 
 
 ```
+## Time on Rochfort before vs after penning
+```{r time on Roch,  message=FALSE, warning=FALSE}
+
+##load a shapefile describing the unused habitat
+unused <- st_read(here::here("data", "spatial","unusedrange.shp"))%>%
+    st_transform(26910)
+mapview(unused)
+
+##how big is it?
+set_units(st_area(unused),km^2)
+
+##filter the telemetry data
+in.unused <- st_intersection(telem,unused)%>%
+  select(id=Animal_ID, datetime=FixDateTime, geometry=Shape)%>%
+  rbind(st_intersection(mcnay%>%filter(datetime<=ymd("2018-03-01")&datetime>=ymd("2014-01-01")),unused)%>%
+          select(id=animal_id,datetime))
+
+outside.unused <- st_erase(telem,unused)%>%
+  select(id=Animal_ID, datetime=FixDateTime, geometry=Shape)%>%
+  rbind(st_erase(mcnay%>%filter(datetime<=ymd("2018-03-01")&datetime>=ymd("2014-01-01")),unused)%>%
+          select(id=animal_id,datetime))
 
 
+in.unused.after <- st_intersection(mcnay%>%filter(datetime>ymd("2018-07-31")),unused)%>%
+          select(id=animal_id,datetime)
+
+outside.unused.after <- st_erase(mcnay%>%filter(datetime>ymd("2018-07-31")),unused)%>%
+          select(id=animal_id,datetime)
+
+##animal days
+
+##in unused before
+days.in.unused <- in.unused%>%
+  tibble%>%
+  group_by(id)%>%
+  summarise(days=n_distinct(date(datetime)))
+
+sum(days.in.unused$days)
+
+
+##outside unused before
+days.outside.unused <- outside.unused%>%
+  tibble%>%
+  group_by(id)%>%
+  summarise(days=n_distinct(date(datetime)))
+
+sum(days.outside.unused$days)
+
+length(unique(c(in.unused$id,outside.unused$id)))
+
+##in unused after
+days.in.unused.after <- in.unused.after%>%
+  tibble%>%
+  group_by(id)%>%
+  summarise(days=n_distinct(date(datetime)))
+
+sum(days.in.unused.after$days)
+
+days.in.unused.after%>%filter(days>60)
+days.in.unused.after%>%filter(days>100)
+
+
+##outside unused after
+days.outside.unused.after <- outside.unused.after%>%
+  tibble%>%
+  group_by(id)%>%
+  summarise(days=n_distinct(date(datetime)))
+
+sum(days.outside.unused.after$days)
+
+
+length(unique(c(in.unused.after$id,outside.unused.after$id)))
+##before
+(sum(days.in.unused$days)/(sum(days.outside.unused$days)+sum(days.in.unused$days)))*100
+
+##after
+(sum(days.in.unused.after$days)/(sum(days.outside.unused.after$days)+sum(days.in.unused.after$days)))*100
+
+
+```
 
 ## Calculate distance from pen after release
 ```{r disto, fig.height=14, fig.width=11, message=FALSE, warning=FALSE}

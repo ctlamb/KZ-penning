@@ -527,7 +527,7 @@ ggplot(data=plot.dat, aes(x=group,y=surv, ymin=surv-se, ymax=surv+se, label=past
 
 ## KM bootstrap
 ```{r model KM boot, message=FALSE, warning=FALSE}
-##COXPH INDIVIDUAL
+
 surv.boot <- data.frame()
 for(i in 1:1000){
 mY <- survfit(Surv(dur, dead)~ PenSeason,
@@ -874,6 +874,7 @@ m4 <- coxph(Surv(dur, dead)~ ReleaseAge*age, data =calf.surv.monthly)
 m5 <- coxph(Surv(dur, dead)~ year+age, data =calf.surv.monthly)
 m6 <- coxph(Surv(dur, dead)~ year*age, data =calf.surv.monthly)
 
+
 model.sel(m1,m2,m3,m4,m5,m6,  rank="AICc")
 cox.zph(m2)
 summary(m2)
@@ -954,9 +955,9 @@ rep_sample_n(size = nrow(part.preg), replace = TRUE, reps = 1000)%>%
   
 calf.rates.plot <- calf.dem.dat%>%
     filter(!name%in%"Survival")%>%
-  mutate(Location=case_when(loc%in%"P"~"In pen",
-                          loc%in%"W"~"Outside pen"),
-         Location=fct_relevel(Location,"In pen","Outside pen"))%>%
+  mutate(Location=case_when(loc%in%"P"~"Penned",
+                          loc%in%"W"~"Unpenned"),
+         Location=fct_relevel(Location,"Penned","Unpenned"))%>%
   ggplot(aes(x=fct_reorder(name, -value), y=value, fill=Location, color=Location))+
   facet_wrap(vars(Location))+
   geom_violin(size=2,trim=TRUE, adjust=2)+
@@ -976,9 +977,9 @@ calf.rates.plot <- calf.dem.dat%>%
   
 calf.surv.comp.plot <- calf.dem.dat%>%
     filter(name%in%"Survival")%>%
-  mutate(Location=case_when(loc%in%"P"~"In pen",
-                          loc%in%"W"~"Outside pen"),
-         Location=fct_relevel(Location,"In pen","Outside pen"))%>%
+  mutate(Location=case_when(loc%in%"P"~"Penned",
+                          loc%in%"W"~"Unpenned"),
+         Location=fct_relevel(Location,"Penned","Unpenned"))%>%
   ggplot(aes(x=Location, y=value, fill=Location, color=Location))+
   geom_violin(size=2, trim=TRUE)+
   stat_summary(fun.y=mean, geom="point", shape=20, size=5, color="black") +
@@ -1001,9 +1002,9 @@ ggsave(here::here("plots","Calfsurv.png"), width=10,height=9)
 
 
 calf.dem.dat%>%
-  mutate(Location=case_when(loc%in%"P"~"In pen",
-                          loc%in%"W"~"Outside pen"),
-         Location=fct_relevel(Location,"In pen","Outside pen"))%>%
+  mutate(Location=case_when(loc%in%"P"~"Penned",
+                          loc%in%"W"~"Unpenned"),
+         Location=fct_relevel(Location,"Penned","Unpenned"))%>%
   group_by(Location,name)%>%
     summarise(median=median(value),
             lower=quantile(value,0.025),

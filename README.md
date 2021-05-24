@@ -1,7 +1,7 @@
 Klinse-Za Penning Demography
 ================
 Clayton Lamb
-23 May, 2021
+24 May, 2021
 
 ## Load Packages & Data
 
@@ -116,13 +116,13 @@ surv <- stretch_survival_data(df, '1 day')
 nrow(surv)
 ```
 
-    ## [1] 75583
+    ## [1] 75592
 
 ``` r
 sum(df$dur) ##should be same
 ```
 
-    ## [1] 75583
+    ## [1] 75592
 
 ## Assign penned animals and seasons
 
@@ -231,7 +231,7 @@ surv <-surv %>%
 length(unique(surv$id))
 ```
 
-    ## [1] 45
+    ## [1] 46
 
 ``` r
 ##get to pen-only times
@@ -479,7 +479,7 @@ chisq.posthoc.test(age.matrix,
 n_distinct(surv.pen$id)
 ```
 
-    ## [1] 45
+    ## [1] 46
 
 ``` r
 surv.pen%>%
@@ -497,11 +497,11 @@ summary(survfit(Surv(dur, dead)~ PennedThatYear, data = surv.pen%>%group_by(id,P
     ## 
     ##                 PennedThatYear=P 
     ##         time       n.risk      n.event     survival      std.err lower 95% CI upper 95% CI 
-    ##     365.0000      29.0000       4.0000       0.8947       0.0498       0.8023       0.9978 
+    ##     365.0000      29.0000       5.0000       0.8718       0.0535       0.7729       0.9833 
     ## 
     ##                 PennedThatYear=W 
     ##         time       n.risk      n.event     survival      std.err lower 95% CI upper 95% CI 
-    ##     365.0000      23.0000       7.0000       0.7941       0.0693       0.6692       0.9424
+    ##     365.0000      23.0000       5.0000       0.8462       0.0633       0.7308       0.9800
 
 ## CoxPh
 
@@ -520,20 +520,20 @@ model.sel(m1,m2,m3,  rank="AICc")
 ```
 
     ## Model selection table 
-    ##    (Int) frl(id) PnS PTY family df   logLik  AICc delta weight
-    ## m3     +       +   +   +   (NA)  6 -102.117 225.6  0.00  0.919
-    ## m1     +       +           (NA)  7 -102.791 230.5  4.91  0.079
-    ## m2     +       +   +       (NA)  9 -100.263 237.6 12.07  0.002
+    ##    (Int) frl(id) PnS PTY family df  logLik  AICc delta weight
+    ## m3     +       +   +   +   (NA)  7 -91.575 210.0  0.00      1
+    ## m1     +       +           (NA) 11 -87.968 241.1 31.12      0
+    ## m2     +       +   +       (NA) 12 -86.876 262.5 52.54      0
     ## Models ranked by AICc(x)
 
 ``` r
 cox.zph(m3)
 ```
 
-    ##                 chisq   df    p
-    ## PenSeason      0.0216 1.00 0.88
-    ## PennedThatYear 1.6084 0.98 0.20
-    ## GLOBAL         1.6276 6.74 0.97
+    ##                chisq   df     p
+    ## PenSeason      0.701 1.00 0.402
+    ## PennedThatYear 2.779 0.98 0.092
+    ## GLOBAL         3.459 7.45 0.871
 
 ``` r
 ggcoxzph(cox.zph(m3))
@@ -556,22 +556,22 @@ summary(m3)
     ## coxph(formula = Surv(dur, dead) ~ PenSeason + PennedThatYear + 
     ##     frailty(id), data = surv.pen)
     ## 
-    ##   n= 299, number of events= 21 
+    ##   n= 300, number of events= 19 
     ## 
-    ##                 coef    se(coef) se2    Chisq DF   p    
-    ## PenSeasonPen    -1.1011 0.6614   0.6613 2.77  1.00 0.096
-    ## PennedThatYearW  0.7919 0.4553   0.4505 3.03  1.00 0.082
-    ## frailty(id)                             5.14  4.76 0.370
+    ##                 coef   se(coef) se2    Chisq DF   p   
+    ## PenSeasonPen    -0.850 0.6815   0.6813 1.56  1.00 0.21
+    ## PennedThatYearW  0.611 0.4719   0.4660 1.68  1.00 0.20
+    ## frailty(id)                            5.90  5.47 0.37
     ## 
     ##                 exp(coef) exp(-coef) lower .95 upper .95
-    ## PenSeasonPen       0.3325      3.008   0.09094     1.216
-    ## PennedThatYearW    2.2077      0.453   0.90442     5.389
+    ## PenSeasonPen       0.4274     2.3397    0.1124     1.625
+    ## PennedThatYearW    1.8423     0.5428    0.7306     4.646
     ## 
-    ## Iterations: 7 outer, 28 Newton-Raphson
-    ##      Variance of random effect= 0.2550131   I-likelihood = -106.9 
-    ## Degrees of freedom for terms= 1.0 1.0 4.8 
-    ## Concordance= 0.784  (se = 0.058 )
-    ## Likelihood ratio test= 16.18  on 6.74 df,   p=0.02
+    ## Iterations: 6 outer, 25 Newton-Raphson
+    ##      Variance of random effect= 0.3279339   I-likelihood = -97 
+    ## Degrees of freedom for terms= 1.0 1.0 5.5 
+    ## Concordance= 0.759  (se = 0.061 )
+    ## Likelihood ratio test= 14.56  on 7.45 df,   p=0.05
 
 ``` r
 ggforest(m3, data=surv.pen)
@@ -596,11 +596,11 @@ m7 <- coxph(Surv(dur, dead)~ PenSeason + PennedThatYear + times.penned +
 cox.zph(m7)
 ```
 
-    ##                 chisq df     p
-    ## PenSeason      0.0211  1 0.884
-    ## PennedThatYear 0.2001  1 0.655
-    ## times.penned   4.9687  1 0.026
-    ## GLOBAL         5.0587  3 0.168
+    ##                chisq df     p
+    ## PenSeason      0.775  1 0.379
+    ## PennedThatYear 0.940  1 0.332
+    ## times.penned   5.630  1 0.018
+    ## GLOBAL         6.869  3 0.076
 
 ``` r
 ggcoxzph(cox.zph(m7))
@@ -616,25 +616,25 @@ summary(m7)
     ## coxph(formula = Surv(dur, dead) ~ PenSeason + PennedThatYear + 
     ##     times.penned + frailty(id), data = surv.pen)
     ## 
-    ##   n= 279, number of events= 16 
+    ##   n= 280, number of events= 14 
     ##    (20 observations deleted due to missingness)
     ## 
     ##                 coef    se(coef) se2    Chisq DF p      
-    ## PenSeasonPen    -1.0576 0.6697   0.6697  2.49 1  0.11000
-    ## PennedThatYearW  0.5016 0.5024   0.5024  1.00 1  0.32000
-    ## times.penned    -0.8544 0.2302   0.2302 13.78 1  0.00021
+    ## PenSeasonPen    -0.7990 0.6943   0.6943  1.32 1  0.25000
+    ## PennedThatYearW  0.2428 0.5430   0.5430  0.20 1  0.65000
+    ## times.penned    -0.8874 0.2518   0.2518 12.42 1  0.00042
     ## frailty(id)                              0.00 0  0.95000
     ## 
     ##                 exp(coef) exp(-coef) lower .95 upper .95
-    ## PenSeasonPen       0.3473     2.8794   0.09347    1.2904
-    ## PennedThatYearW    1.6514     0.6056   0.61691    4.4206
-    ## times.penned       0.4255     2.3501   0.27101    0.6681
+    ## PenSeasonPen       0.4498     2.2234    0.1153    1.7538
+    ## PennedThatYearW    1.2748     0.7845    0.4398    3.6949
+    ## times.penned       0.4117     2.4288    0.2514    0.6744
     ## 
-    ## Iterations: 6 outer, 23 Newton-Raphson
-    ##      Variance of random effect= 0.0000005   I-likelihood = -72.1 
+    ## Iterations: 6 outer, 22 Newton-Raphson
+    ##      Variance of random effect= 0.0000005   I-likelihood = -62.8 
     ## Degrees of freedom for terms= 1 1 1 0 
-    ## Concordance= 0.862  (se = 0.037 )
-    ## Likelihood ratio test= 26.68  on 3 df,   p=0.000007
+    ## Concordance= 0.86  (se = 0.039 )
+    ## Likelihood ratio test= 22.88  on 3 df,   p=0.00004
 
 ``` r
 ggforest(m7, data=surv.pen)
@@ -685,7 +685,6 @@ ggplot(data=plot.dat, aes(x=group,y=surv, ymin=surv-se, ymax=surv+se, label=past
 ## KM bootstrap
 
 ``` r
-##COXPH INDIVIDUAL
 surv.boot <- data.frame()
 for(i in 1:1000){
 mY <- survfit(Surv(dur, dead)~ PenSeason,
@@ -1142,6 +1141,7 @@ m4 <- coxph(Surv(dur, dead)~ ReleaseAge*age, data =calf.surv.monthly)
 m5 <- coxph(Surv(dur, dead)~ year+age, data =calf.surv.monthly)
 m6 <- coxph(Surv(dur, dead)~ year*age, data =calf.surv.monthly)
 
+
 model.sel(m1,m2,m3,m4,m5,m6,  rank="AICc")
 ```
 
@@ -1260,9 +1260,9 @@ rep_sample_n(size = nrow(part.preg), replace = TRUE, reps = 1000)%>%
   
 calf.rates.plot <- calf.dem.dat%>%
     filter(!name%in%"Survival")%>%
-  mutate(Location=case_when(loc%in%"P"~"In pen",
-                          loc%in%"W"~"Outside pen"),
-         Location=fct_relevel(Location,"In pen","Outside pen"))%>%
+  mutate(Location=case_when(loc%in%"P"~"Penned",
+                          loc%in%"W"~"Unpenned"),
+         Location=fct_relevel(Location,"Penned","Unpenned"))%>%
   ggplot(aes(x=fct_reorder(name, -value), y=value, fill=Location, color=Location))+
   facet_wrap(vars(Location))+
   geom_violin(size=2,trim=TRUE, adjust=2)+
@@ -1282,9 +1282,9 @@ calf.rates.plot <- calf.dem.dat%>%
   
 calf.surv.comp.plot <- calf.dem.dat%>%
     filter(name%in%"Survival")%>%
-  mutate(Location=case_when(loc%in%"P"~"In pen",
-                          loc%in%"W"~"Outside pen"),
-         Location=fct_relevel(Location,"In pen","Outside pen"))%>%
+  mutate(Location=case_when(loc%in%"P"~"Penned",
+                          loc%in%"W"~"Unpenned"),
+         Location=fct_relevel(Location,"Penned","Unpenned"))%>%
   ggplot(aes(x=Location, y=value, fill=Location, color=Location))+
   geom_violin(size=2, trim=TRUE)+
   stat_summary(fun.y=mean, geom="point", shape=20, size=5, color="black") +
@@ -1312,9 +1312,9 @@ ggsave(here::here("plots","Calfsurv.png"), width=10,height=9)
 
 
 calf.dem.dat%>%
-  mutate(Location=case_when(loc%in%"P"~"In pen",
-                          loc%in%"W"~"Outside pen"),
-         Location=fct_relevel(Location,"In pen","Outside pen"))%>%
+  mutate(Location=case_when(loc%in%"P"~"Penned",
+                          loc%in%"W"~"Unpenned"),
+         Location=fct_relevel(Location,"Penned","Unpenned"))%>%
   group_by(Location,name)%>%
     summarise(median=median(value),
             lower=quantile(value,0.025),
@@ -1596,11 +1596,11 @@ model.sel(m1,m2,m3,m4,  rank="AICc")
 ```
 
     ## Model selection table 
-    ##    (Int) frl(id) PnS PTY     avy family df   logLik  AICc delta weight
-    ## m4     +       +   +   + -0.4557   (NA)  5  -97.269 209.2  0.00      1
-    ## m3     +       +   +   +           (NA)  6 -102.117 225.6 16.38      0
-    ## m1     +       +                   (NA)  7 -102.791 230.5 21.29      0
-    ## m2     +       +   +               (NA)  9 -100.263 237.6 28.45      0
+    ##    (Int) frl(id) PnS PTY    avy family df  logLik  AICc delta weight
+    ## m4     +       +   +   + -1.311   (NA)  3 -82.497 172.8  0.00      1
+    ## m3     +       +   +   +          (NA)  7 -91.575 210.0 37.11      0
+    ## m1     +       +                  (NA) 11 -87.968 241.1 68.23      0
+    ## m2     +       +   +              (NA) 12 -86.876 262.5 89.65      0
     ## Models ranked by AICc(x)
 
 ``` r
@@ -1640,10 +1640,10 @@ model.sel(m1,m2,m3,m4,  rank="AICc")
 
     ## Model selection table 
     ##    (Int) PTY    avy avy:PTY family      class df  logLik  AICc delta weight
-    ## m4     +   + -7.955       +   (NA)      coxph  3 -81.227 170.2  0.00  0.559
-    ## m2     +   +                  (NA)      coxph  1 -84.725 171.7  1.53  0.260
-    ## m3     +   + -1.038           (NA)      coxph  2 -84.466 173.7  3.56  0.094
-    ## m1     +                      (NA) coxph.null  0 -86.951 173.9  3.74  0.086
+    ## m4     +   + -8.048       +   (NA)      coxph  3 -72.079 152.2  0.00  0.461
+    ## m2     +   +                  (NA)      coxph  1 -75.556 153.4  1.24  0.248
+    ## m1     +                      (NA) coxph.null  0 -76.964 153.9  1.77  0.190
+    ## m3     +   + -1.447           (NA)      coxph  2 -75.131 155.2  3.03  0.101
     ## Models ranked by AICc(x)
 
 ``` r
@@ -1654,22 +1654,22 @@ summary(m3)
     ## coxph(formula = Surv(dur, dead) ~ PennedThatYear + avy, data = surv.pen %>% 
     ##     filter(PenSeason %in% "Free"))
     ## 
-    ##   n= 150, number of events= 18 
+    ##   n= 150, number of events= 16 
     ## 
     ##                    coef exp(coef) se(coef)      z Pr(>|z|)  
-    ## PennedThatYearW  1.0963    2.9930   0.5116  2.143   0.0321 *
-    ## avy             -1.0385    0.3540   1.4696 -0.707   0.4798  
+    ## PennedThatYearW  0.9538    2.5956   0.5288  1.804   0.0713 .
+    ## avy             -1.4467    0.2354   1.6119 -0.897   0.3695  
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
     ##                 exp(coef) exp(-coef) lower .95 upper .95
-    ## PennedThatYearW     2.993     0.3341   1.09797     8.159
-    ## avy                 0.354     2.8249   0.01986     6.309
+    ## PennedThatYearW    2.5956     0.3853  0.920745     7.317
+    ## avy                0.2354     4.2489  0.009993     5.543
     ## 
-    ## Concordance= 0.673  (se = 0.052 )
-    ## Likelihood ratio test= 4.97  on 2 df,   p=0.08
-    ## Wald test            = 4.67  on 2 df,   p=0.1
-    ## Score (logrank) test = 5.05  on 2 df,   p=0.08
+    ## Concordance= 0.668  (se = 0.058 )
+    ## Likelihood ratio test= 3.67  on 2 df,   p=0.2
+    ## Wald test            = 3.54  on 2 df,   p=0.2
+    ## Score (logrank) test = 3.74  on 2 df,   p=0.2
 
 ``` r
 summary(m4)
@@ -1679,24 +1679,24 @@ summary(m4)
     ## coxph(formula = Surv(dur, dead) ~ PennedThatYear * avy, data = surv.pen %>% 
     ##     filter(PenSeason %in% "Free"))
     ## 
-    ##   n= 150, number of events= 18 
+    ##   n= 150, number of events= 16 
     ## 
     ##                               coef      exp(coef)       se(coef)      z Pr(>|z|)  
-    ## PennedThatYearW      -13.531063089    0.000001329    5.962422028 -2.269   0.0232 *
-    ## avy                   -7.954821128    0.000350966    3.404610944 -2.336   0.0195 *
-    ## PennedThatYearW:avy    8.884464354 7218.946839291    3.723799051  2.386   0.0170 *
+    ## PennedThatYearW      -13.717517552    0.000001103    6.139809757 -2.234   0.0255 *
+    ## avy                   -8.048287190    0.000319649    3.438020853 -2.341   0.0192 *
+    ## PennedThatYearW:avy    8.905169973 7369.977797339    3.819642570  2.331   0.0197 *
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ##                          exp(coef)     exp(-coef)        lower .95     upper .95
-    ## PennedThatYearW        0.000001329 752429.8804457 0.00000000001118        0.1580
-    ## avy                    0.000350966   2849.2786269 0.00000044386918        0.2775
-    ## PennedThatYearW:avy 7218.946839291      0.0001385 4.88394028400742 10670317.4974
+    ##                          exp(coef)     exp(-coef)         lower .95     upper .95
+    ## PennedThatYearW        0.000001103 906655.2448807 0.000000000006552        0.1857
+    ## avy                    0.000319649   3128.4319695 0.000000378638377        0.2698
+    ## PennedThatYearW:avy 7369.977797339      0.0001357 4.132192351987280 13144734.8300
     ## 
-    ## Concordance= 0.711  (se = 0.053 )
-    ## Likelihood ratio test= 11.45  on 3 df,   p=0.01
-    ## Wald test            = 6.76  on 3 df,   p=0.08
-    ## Score (logrank) test = 8.63  on 3 df,   p=0.03
+    ## Concordance= 0.69  (se = 0.063 )
+    ## Likelihood ratio test= 9.77  on 3 df,   p=0.02
+    ## Wald test            = 6.09  on 3 df,   p=0.1
+    ## Score (logrank) test = 7.23  on 3 df,   p=0.06
 
 ``` r
 ggforest(m3, data=surv.pen)
@@ -1720,18 +1720,18 @@ summary(m2w)
     ## coxph(formula = Surv(dur, dead) ~ avy, data = surv.pen %>% filter(PenSeason %in% 
     ##     "Free" & PennedThatYear %in% "W"))
     ## 
-    ##   n= 67, number of events= 12 
+    ##   n= 67, number of events= 10 
     ## 
     ##       coef exp(coef) se(coef)     z Pr(>|z|)
-    ## avy 0.8967    2.4516   1.5142 0.592    0.554
+    ## avy 0.8422    2.3214   1.6746 0.503    0.615
     ## 
     ##     exp(coef) exp(-coef) lower .95 upper .95
-    ## avy     2.452     0.4079    0.1261     47.68
+    ## avy     2.321     0.4308   0.08717     61.82
     ## 
-    ## Concordance= 0.498  (se = 0.095 )
-    ## Likelihood ratio test= 0.34  on 1 df,   p=0.6
-    ## Wald test            = 0.35  on 1 df,   p=0.6
-    ## Score (logrank) test = 0.35  on 1 df,   p=0.6
+    ## Concordance= 0.453  (se = 0.116 )
+    ## Likelihood ratio test= 0.24  on 1 df,   p=0.6
+    ## Wald test            = 0.25  on 1 df,   p=0.6
+    ## Score (logrank) test = 0.25  on 1 df,   p=0.6
 
 ``` r
 summary(m2p)
