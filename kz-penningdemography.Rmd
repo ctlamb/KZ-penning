@@ -27,6 +27,9 @@ library(readxl)
 library(lme4)
 library(ggpubr)
 library(chisq.posthoc.test)
+library(rgee)
+library(sf)
+library(raster)
 options(scipen=999)
 source(here::here("functions","seasonalsurvival_fn.r"))
 
@@ -97,7 +100,7 @@ df <- df %>%
 
 ##get columns named appropriately for function
 df <- df %>% 
-  select(id=animal_id,
+  dplyr::select(id=animal_id,
          herd,
          start=rstart_dat,
          end=rend_dat,
@@ -156,7 +159,7 @@ ggplot(surv, aes(x=end,y=id,color=season))+
 ####ASSIGN LOCATIONS IN/OUT
 ##decide who was in the pen
 pen.yr <- ad.cap %>% 
-  select(id=WimsId, paste0("Capt",14:21))%>%
+  dplyr::select(id=WimsId, paste0("Capt",14:21))%>%
   pivot_longer(-id)%>%
   mutate(id=paste0("CN", str_sub(id,2,-1)),
          year=paste0("20", str_sub(name,-2,-1))%>%as.numeric)
@@ -164,7 +167,7 @@ pen.yr <- ad.cap %>%
 ##figure out first year animals were penned
 pen.yr.first <- pen.yr %>% 
   drop_na(value)%>%
-  select(id,year)%>%
+  dplyr::select(id,year)%>%
   rbind(surv%>%
           filter(id%in%pen.yr$id)%>%
           group_by(id)%>%
@@ -178,18 +181,18 @@ pen.yr <- pen.yr%>%
   mutate(value=case_when(is.na(value)~"W",
                          TRUE~value))%>%
   filter(year>=min.year)%>%
-  select(id, loc=value, year)%>%
+  dplyr::select(id, loc=value, year)%>%
   distinct(id,year,.keep_all = TRUE)%>%
-  left_join(pen%>%select(year,penned,free), by="year")
+  left_join(pen%>%dplyr::select(year,penned,free), by="year")
 
 ##export for RSF analysis
 write_csv(pen.yr, here::here("data","whopenned.csv"))
 
 ##bind with surv
 surv <- surv %>% 
-  left_join(pen.yr%>%select(id,loc,year)%>%distinct(), by=c("id","year"))%>% ##where each animal was per year
-  left_join(pen.yr%>%mutate(year=year)%>%select(year,id,free)%>%distinct(), by=c("id","year"))%>% ##add in "free" dates
-  left_join(pen.yr%>%mutate(year=year+1)%>%select(year,id,loc_prev=loc,free_prev=free)%>%distinct(), by=c("id","year")) ##add in lag of where they were year before
+  left_join(pen.yr%>%dplyr::select(id,loc,year)%>%distinct(), by=c("id","year"))%>% ##where each animal was per year
+  left_join(pen.yr%>%mutate(year=year)%>%dplyr::select(year,id,free)%>%distinct(), by=c("id","year"))%>% ##add in "free" dates
+  left_join(pen.yr%>%mutate(year=year+1)%>%dplyr::select(year,id,loc_prev=loc,free_prev=free)%>%distinct(), by=c("id","year")) ##add in lag of where they were year before
 
 
 ##find errors, join is missing some animals
@@ -239,11 +242,11 @@ summary%>%filter(year>2013)%>%arrange(loc)%>%
   left_join(read_excel(here::here("data","demography", "Klinse-za capture and demographics_210521.xlsx"),
                      sheet="Adult-Capt")%>%
       drop_na(CalendarYr)%>%
-              select(id=WimsId, paste0("Capt",14:20))%>%
+              dplyr::select(id=WimsId, paste0("Capt",14:20))%>%
               pivot_longer(-id)%>%
               mutate(id=paste0("CN", str_sub(id,2,-1)),
                      year=paste0("20", str_sub(name,-2,-1))%>%as.numeric)%>%
-              select(id, loc=value, year)%>%
+              dplyr::select(id, loc=value, year)%>%
               drop_na(loc)%>%
               group_by(year,loc)%>%
               summarize(n_pen.yr=n_distinct(id)))
@@ -258,7 +261,7 @@ ggplot(surv, aes(x=end,y=id,color=season))+
 ##fix year for records just prior to penning
 surv <- surv%>%
   left_join(pen%>%
-              mutate(prepen=(ymd(paste0(year(ymd(into)),"-01-01"))-1) %--% ymd(into))%>%select(year, prepen))%>%
+              mutate(prepen=(ymd(paste0(year(ymd(into)),"-01-01"))-1) %--% ymd(into))%>%dplyr::select(year, prepen))%>%
   mutate(year=case_when(end %within% prepen~year-1, TRUE~year))
 ```
   
@@ -277,7 +280,7 @@ surv <- surv%>%
 # 
 # df <- data.frame(cbind(id, time, event, random))
 # df$event <- ifelse(df$random < 0.55, 0, df$event)
-# df <- subset(df, select = -c(random))
+# df <- subset(df, dplyr::select = -c(random))
 # #df$event <- ifelse(df$time == 0, 100, df$event)
 # head(df)
 # df %>%
@@ -287,7 +290,7 @@ surv <- surv%>%
 #   group_by(tmpG) %>%
 #   mutate(tae = cumsum(tmp_a)) %>%
 #   ungroup() %>%
-#   select(-c(tmp_a, -tmpG))
+#   dplyr::select(-c(tmp_a, -tmpG))
 
 
 surv <- surv%>%
@@ -300,16 +303,18 @@ surv <- surv%>%
   group_by(tmpG) %>%
   mutate(timesince = cumsum(tmp_a)) %>%
   ungroup()%>%
-  select(id,start,end,dead,dur,year,season,loc,loc_prev,inpen,timesince)
+  dplyr::select(id,start,end,dead,dur,year,season,loc,loc_prev,inpen,timesince)
 
 
 ##times penned
 surv <- surv%>%
   left_join(surv%>%
-  filter(loc=="P")%>%
+  filter(loc=="P" & season=="Pen")%>%
   distinct(id,year(end),loc)%>%
   group_by(id)%>%
-  summarize(times.penned=n()))
+  summarize(times.penned=n()))%>%
+  mutate(times.penned=case_when(is.na(times.penned)~as.integer(0),
+                                TRUE~times.penned))
   
 
 
@@ -329,9 +334,22 @@ surv.pen%>%
   group_by(PennedThatYear,PenSeason)%>%
   summarize(n=n_distinct(id))
 
+##individuals penned post 2018
+surv.pen%>%
+  filter(year>=2018)%>%
+  group_by(PennedThatYear,PenSeason)%>%
+  summarize(n=n_distinct(id))
+
+
 
 ##distribution of durations monitored
 hist(surv.pen$dur)
+
+
+##distribution of times penned
+times.penned <- surv.pen%>%ungroup%>%filter(PenSeason=="Pen")%>%distinct(id, .keep_all=TRUE)
+times.penned%>%summarise(median=median(times.penned))
+hist(times.penned%>%pull(times.penned))
 ```
 
 ## Assess if differences in body condition or age between penned vs wild
@@ -339,11 +357,11 @@ hist(surv.pen$dur)
 
 ##prep body condition data
 bod.cond <- pen.yr%>%
-  select(id,loc,year)%>%
+  dplyr::select(id,loc,year)%>%
   left_join(cond%>%
               mutate(id=paste0("CN",str_sub(`WII Animal ID`,2,-1)))%>%
               filter(ymd(Date)%>%month %in%2:4)%>%
-              select(id,year=Year, condition_clean, age_clean))%>%
+              dplyr::select(id,year=Year, condition_clean, age_clean))%>%
     mutate(age_clean=case_when(age_clean%in%c("mature", "mature (6-7)","mature (7)","mature (4-7)","mature (4-5)")~"mature",
                              age_clean%in%c("old","old (8-9)","old (10-11)","old (8-11)")~"old",
                              age_clean%in%c("young","young (2-3)", "yearling")~"young",
@@ -447,6 +465,22 @@ surv.pen%>%
 
 summary(survfit(Surv(dur, dead)~ PennedThatYear, data = surv.pen%>%group_by(id,PennedThatYear)%>%summarise(dur=sum(dur),dead=max(dead))), times = 365)
 ```
+
+## Survival spring-march for recruitment
+```{r surv data stats for recruit, message=FALSE, warning=FALSE}
+##inds
+surv.recruit <- surv%>%
+  filter(!month(start)%in%c(3:5))%>%
+  group_by(id,year,loc, times.penned)%>%
+  summarise(dur=sum(dur),
+            dead=max(dead))%>%
+  rename(PennedThatYear=loc)
+
+
+
+summary(survfit(Surv(dur, dead)~ PennedThatYear, data = surv.recruit), times = 273)
+```
+
 ## CoxPh
 ```{r model coxph, message=FALSE, warning=FALSE}
 
@@ -571,7 +605,7 @@ sum.stat
 ####differences between survival for the out of pen period
 surv.boot%>%
   filter(season%in%"PenSeason=Free")%>%
-  select(Penned, iter, surv)%>%
+  dplyr::select(Penned, iter, surv)%>%
   pivot_wider(names_from=Penned, values_from=surv)%>%
   drop_na()%>%
   mutate(dif=Y-N)%>%
@@ -583,7 +617,7 @@ surv.boot%>%
 ####differences between survival for the in pen period
 surv.boot%>%
   filter(season%in%"PenSeason=Pen")%>%
-  select(Penned, iter, surv)%>%
+  dplyr::select(Penned, iter, surv)%>%
   pivot_wider(names_from=Penned, values_from=surv)%>%
   drop_na()%>%
   mutate(dif=Y-N)%>%
@@ -651,8 +685,8 @@ preg <- ad.cap%>%
         class="Pregnancy")%>%
   drop_na(preg)%>%
   mutate(id=paste0("CN", str_sub(WimsId,2,-1)))%>%
-  select(id,class, year,value=preg)%>%
-  left_join(pen.yr%>%select(id, year, loc), by=c("id","year"))
+  dplyr::select(id,class, year,value=preg)%>%
+  left_join(pen.yr%>%dplyr::select(id, year, loc), by=c("id","year"))
 ```
 
 ## Parturition
@@ -661,8 +695,8 @@ mm.part.clean <- mm.part%>%
     mutate(`Calf (Predictions)`=case_when(`Validated?`%in% "False Negative"~1, 
          TRUE~`Calf (Predictions)`),##fix a couple wrong predictions
          id=paste0("CN",str_sub(Caribou_ID,2,-1)))%>%
-  select(id,year=Year, part=`Calf (Predictions)`)%>%
-  left_join(pen.yr%>%select(id, year, loc), by=c("id","year"))
+  dplyr::select(id,year=Year, part=`Calf (Predictions)`)%>%
+  left_join(pen.yr%>%dplyr::select(id, year, loc), by=c("id","year"))
 
 
 ##load calf data
@@ -674,11 +708,11 @@ part.cap <- calf%>%
   mutate(part=case_when(CalfAgeat1Yr>0~1,TRUE~0),
          loc="P",
          year=paste0(20,PenYr))%>%
-  select(id=Mom_ID, year, loc, part)
+  dplyr::select(id=Mom_ID, year, loc, part)
 
 part <- rbind(part.cap,mm.part.clean)%>%
   mutate(class="Parturition")%>%
-  select(id,class,year,value=part, loc)
+  dplyr::select(id,class,year,value=part, loc)
 
 ####Join with preg
 part.preg <- rbind(part,preg)
@@ -692,7 +726,7 @@ part.preg%>%
 #BOOT to assess differences
 part.preg.summary <- part.preg%>%
 mutate(value=case_when(id%in%"CN336K" & year%in%2016 & loc%in%"W"~0, TRUE~value))%>%## force one wild preg value to 0 so some error can be calculated
-rep_sample_n(size = nrow(part.preg), replace = TRUE, reps = 1000)%>%
+rep_sample_n(size = nrow(part.preg), replace = TRUE, reps = 10000)%>%
   group_by(replicate,loc,class)%>%
     summarize(value_mean=mean(value))%>%
   group_by(loc,class)%>%
@@ -733,7 +767,7 @@ part.preg%>%
 rep_sample_n(size = nrow(part.preg), replace = TRUE, reps = 10000)%>%
   group_by(replicate,loc,class)%>%
     summarize(value_mean=mean(value))%>%
-  select(loc,class, replicate, value_mean)%>%
+  dplyr::select(loc,class, replicate, value_mean)%>%
   pivot_wider(names_from=loc, values_from=value_mean)%>%
   mutate(dif=P-W)%>%
   group_by(class)%>%
@@ -754,7 +788,6 @@ model.sel(null,m1)
 
 
 ## Calf survival
-
 ## data summary stats
 ```{r calf surv data stats, message=FALSE, warning=FALSE}
 ##clean survival data
@@ -763,12 +796,13 @@ calf_surv <- calf%>%
   filter(!WimsId%in%"NA" & PenYr<21)%>%
   mutate(Born_Date=ymd(BornDat),
          LastObsAsCalf=ymd(ColLastDat))%>%
-  select(WimsId,Born_Date,DeadCalf,ReleaseAge=WksAtRel, LastObsAsCalf,Notes.calf=Notes, Sex)%>%
+  dplyr::select(WimsId,Born_Date,DeadCalf=DeadCalf,ReleaseAge=WksAtRel, LastObsAsCalf,Notes.calf=Notes, Sex)%>%
   arrange(DeadCalf)%>%
   mutate(dur=case_when(as.numeric(LastObsAsCalf-Born_Date)<=366 ~as.numeric(LastObsAsCalf-Born_Date),
                        as.numeric(LastObsAsCalf-Born_Date)>366~365),
          year=year(Born_Date))%>%
-  select(id=WimsId, Sex, year,start=Born_Date, end=LastObsAsCalf, dead=DeadCalf, dur, ReleaseAge)%>%
+  dplyr::select(id=WimsId, Sex, year,start=Born_Date, end=LastObsAsCalf, dead=DeadCalf, dur, ReleaseAge)%>%
+  mutate(dead2=case_when(id%in%c("C358S","C324S","C357K","C354S","C353K","C460S")~1, TRUE~dead))%>%
   filter(dur>0)
 
 cor(calf_surv$year, calf_surv$ReleaseAge, use="complete.obs")
@@ -778,7 +812,8 @@ n_distinct(calf_surv$id)
 
 calf_surv%>%
   summarise(animalyrs=sum(dur)/365,
-            dead=sum(dead))
+            dead=sum(dead),
+            dead2=sum(dead2))
 ```
 
 ```{r model calf, message=FALSE, warning=FALSE}
@@ -788,7 +823,7 @@ calf_born <- calf %>%
   mutate(born=ymd(BornDat),
          born_plot=born)%>%
   filter(!born%in%ymd("2017-04-16"))%>%
-  select(PenYr, born, born_plot)
+  dplyr::select(PenYr, born, born_plot)
 
 year(calf_born$born_plot)<-2020
 
@@ -816,8 +851,8 @@ calf_born%>%
 median(calf_born%>%drop_na(born_plot)%>%pull(born_plot))
 
 ##model survival
-m1 <- survfit(Surv(dur, dead)~ 1, data = calf_surv%>%filter(dur>0))
-m2 <- survfit(Surv(dur, dead)~ Sex, data = calf_surv%>%filter(dur>0))
+m1 <- survfit(Surv(dur, dead2)~ 1, data = calf_surv%>%filter(dur>0))
+m2 <- survfit(Surv(dur, dead2)~ Sex, data = calf_surv%>%filter(dur>0))
 
 ggsurvplot(m1, data = calf_surv, xlim=c(0,365))
 ggsurvplot(m2, data = calf_surv, xlim=c(0,365))
@@ -827,14 +862,17 @@ ggsurvplot(m2, data = calf_surv, xlim=c(0,365))
 summary(survfit(Surv(dur, dead)~ 1, data = calf_surv%>%filter(dur>0)), times = 365)
 summary(survfit(Surv(dur, dead)~ 1, data = calf_surv%>%filter(dur>0)), times = 300)
 
+summary(survfit(Surv(dur, dead2)~ 1, data = calf_surv%>%filter(dur>0)), times = 365)
+summary(survfit(Surv(dur, dead2)~ 1, data = calf_surv%>%filter(dur>0)), times = 300)
+
 
 ##COXPH
-m1 <- coxph(Surv(dur, dead)~ 1, data = calf_surv%>%drop_na(ReleaseAge))
-m2 <- coxph(Surv(dur, dead)~ Sex, data = calf_surv%>%drop_na(ReleaseAge))
-m3 <- coxph(Surv(dur, dead)~ ReleaseAge, data = calf_surv%>%drop_na(ReleaseAge))
-m4 <- coxph(Surv(dur, dead)~ ReleaseAge + Sex, data = calf_surv%>%drop_na(ReleaseAge))
-m5 <- coxph(Surv(dur, dead)~ Sex + year, data = calf_surv%>%drop_na(ReleaseAge))
-m6 <- coxph(Surv(dur, dead)~   year, data = calf_surv%>%drop_na(ReleaseAge))
+m1 <- coxph(Surv(dur, dead2)~ 1, data = calf_surv%>%drop_na(ReleaseAge))
+m2 <- coxph(Surv(dur, dead2)~ Sex, data = calf_surv%>%drop_na(ReleaseAge))
+m3 <- coxph(Surv(dur, dead2)~ ReleaseAge, data = calf_surv%>%drop_na(ReleaseAge))
+m4 <- coxph(Surv(dur, dead2)~ ReleaseAge + Sex, data = calf_surv%>%drop_na(ReleaseAge))
+m5 <- coxph(Surv(dur, dead2)~ Sex + year, data = calf_surv%>%drop_na(ReleaseAge))
+m6 <- coxph(Surv(dur, dead2)~   year, data = calf_surv%>%drop_na(ReleaseAge))
 
 model.sel(m1,m2,m3,m4,m5,m6,  rank="AICc")
 cox.zph(m3)
@@ -845,8 +883,8 @@ summary(m3)
 
 ##proportional hazard violations. Mostly because calves died early (<100 days) early on, then later (>200 days) later on
 #####massage into monthly survival so seasons/time can be accomadated
-calf.surv.daily <- stretch_survival_data(calf_surv%>%
-                                           drop_na(ReleaseAge)%>%
+calf.surv.daily <- stretch_survival_data(calf_surv%>%dplyr::select(-dead)%>%rename(dead=dead2)%>%
+                                           #drop_na(ReleaseAge)%>%
                                            mutate(end=start+dur,
                                                   herd="K",
                                                   birth=ReleaseAge), '1 day')%>%
@@ -862,43 +900,63 @@ calf.surv.monthly <- calf.surv.daily%>%
     summarise(dur=sum(dur),
               dead=max(dead),
               age=mean(age))%>%
-  left_join(calf_surv%>%select(id,year))
+  left_join(calf_surv%>%dplyr::select(id,year))
 
 
 ###try again
 ##COXPH
-m1 <- coxph(Surv(dur, dead)~ 1, data =calf.surv.monthly)
-m2 <- coxph(Surv(dur, dead)~ ReleaseAge, data =calf.surv.monthly)
-m3 <- coxph(Surv(dur, dead)~ ReleaseAge + age, data =calf.surv.monthly)
-m4 <- coxph(Surv(dur, dead)~ ReleaseAge*age, data =calf.surv.monthly)
-m5 <- coxph(Surv(dur, dead)~ year+age, data =calf.surv.monthly)
-m6 <- coxph(Surv(dur, dead)~ year*age, data =calf.surv.monthly)
+m1 <- coxph(Surv(dur, dead)~ 1, data =calf.surv.monthly%>%drop_na(ReleaseAge))
+m2 <- coxph(Surv(dur, dead)~ ReleaseAge, data =calf.surv.monthly%>%drop_na(ReleaseAge))
+m3 <- coxph(Surv(dur, dead)~ ReleaseAge + age, data =calf.surv.monthly%>%drop_na(ReleaseAge))
+m4 <- coxph(Surv(dur, dead)~ ReleaseAge*age, data =calf.surv.monthly%>%drop_na(ReleaseAge))
+m5 <- coxph(Surv(dur, dead)~ year+age, data =calf.surv.monthly%>%drop_na(ReleaseAge))
+m6 <- coxph(Surv(dur, dead)~ year*age, data =calf.surv.monthly%>%drop_na(ReleaseAge))
 
 
 model.sel(m1,m2,m3,m4,m5,m6,  rank="AICc")
-cox.zph(m2)
-summary(m2)
-
+cox.zph(m4)
+summary(m4)
 
 
 calf.pred.boot <- data.frame()
 ##Boot for plot to show uncertainty
 for(i in 1:1000){
-  m3.i <- coxph(Surv(dur, dead)~ ReleaseAge, data = calf.surv.monthly%>%sample_frac(1,replace=TRUE))
+  m.i <- coxph(Surv(dur, dead)~ ReleaseAge*age, data = calf.surv.monthly%>%drop_na(ReleaseAge)%>%sample_frac(1,replace=TRUE))
  
-  calf.pred.i <- expand.grid(ReleaseAge=6:12, dur=30, dead=0, iter=i) 
+  calf.pred.i <- expand.grid(ReleaseAge=5:13, dur=30, dead=0, age=seq(0,330,by=30),iter=i) 
   
-  calf.pred.i$pred <- exp(-predict(m3.i, newdata=calf.pred.i, type="expected"))
+  calf.pred.i$pred <- exp(-predict(m.i, newdata=calf.pred.i, type="expected"))
   calf.pred.i$pred
   calf.pred.boot <- rbind(calf.pred.boot,calf.pred.i)
 }
 
+# calf.surv.plot <- ggplot(data=calf.pred.boot%>%
+#          drop_na()%>%
+#          mutate(pred=pred^12)%>%
+#          group_by(ReleaseAge)%>%
+#          summarize(median=median(pred), lower=quantile(pred,0.025), upper=quantile(pred,0.975), se=sd(pred))%>%
+#          mutate(upper2=case_when(lower>1~1, TRUE~lower)), aes(x=ReleaseAge*7,y=median))+
+#          geom_path()+
+#   geom_ribbon(aes(ymin=lower, ymax=upper),alpha=0.5)+
+#     theme_ipsum()+
+#   labs(y="Survival rate (annual)", x="Release age (days)", title="Calf Survival and Release Age from Pen")+
+#   theme(axis.title.x = element_text(size=15),
+#         axis.title.y = element_text(size=15),
+#         strip.text.x = element_text(size=15),
+#         strip.text.y = element_text(size=15),
+#         axis.text = element_text(size=10),
+#         legend.text = element_text(size=13),
+#         legend.title=element_text(size=15))
+
+#if age interaction added
 calf.surv.plot <- ggplot(data=calf.pred.boot%>%
          drop_na()%>%
-         mutate(pred=pred^12)%>%
+         group_by(ReleaseAge,iter)%>%
+         summarize(surv=prod(pred))%>%
          group_by(ReleaseAge)%>%
-         summarize(median=median(pred), lower=quantile(pred,0.025), upper=quantile(pred,0.975), se=sd(pred))%>%
-         mutate(upper2=case_when(lower>1~1, TRUE~lower)), aes(x=ReleaseAge*7,y=median))+
+         summarize(median=median(surv),  lower=quantile(surv,0.025), upper=quantile(surv,0.975), se=sd(surv))%>%
+         mutate(upper2=case_when(lower>1~1, TRUE~lower)),
+         aes(x=ReleaseAge*7,y=median))+
          geom_path()+
   geom_ribbon(aes(ymin=lower, ymax=upper),alpha=0.5)+
     theme_ipsum()+
@@ -935,22 +993,37 @@ calf.surv.plot <- ggplot(data=calf.pred.boot%>%
 part.preg.summary%>%
   filter(class%in%"Parturition")%>%
   ungroup%>%
-  mutate(recruit=c(0.61,0.4),
+  mutate(recruit=c(0.60,0.4),
          surv=recruit/value)
 
 calf.dem.dat <- part.preg%>%
 mutate(value=case_when(id%in%"CN336K" & year%in%2016 & loc%in%"W"~0, TRUE~value))%>%## force one wild preg value to 0 so some error can be calculated
-rep_sample_n(size = nrow(part.preg), replace = TRUE, reps = 1000)%>%
+rep_sample_n(size = nrow(part.preg), replace = TRUE, reps = 10000)%>%
   group_by(replicate,loc,class)%>%
     summarize(value_mean=mean(value))%>%
     ungroup%>%
   pivot_wider(id_cols=c("replicate","loc"), names_from="class",values_from="value_mean")%>%
   group_by(replicate,loc,Parturition,Pregnancy)%>%
-  mutate(Recruitment=case_when(loc%in%"P"~rnorm(1,mean=0.61,sd=0.01), 
-                           loc%in%"W"~rnorm(1,mean=0.4,sd=0.09)),
-         Survival=Recruitment/Parturition)%>%
+  mutate(Recruitment=case_when(loc%in%"P"~rnorm(1,mean=0.60,sd=0.01), 
+                           loc%in%"W"~rnorm(1,mean=0.42,sd=0.03)),
+         Survival=case_when(loc%in%"P"~(Recruitment*0.94)/Parturition, 
+                           loc%in%"W"~(Recruitment*0.84)/Parturition))%>%
   pivot_longer(cols=c("Parturition","Pregnancy","Recruitment", "Survival"))%>%
-  filter(value<=1)
+  filter(value<=1)%>%
+  rbind(part.preg%>% ###use penned parturition
+mutate(value=case_when(id%in%"CN336K" & year%in%2016 & loc%in%"W"~0, TRUE~value))%>% ## force one wild preg value to 0 so some error can be calculated
+rep_sample_n(size = nrow(part.preg), replace = TRUE, reps = 10000)%>%
+  group_by(replicate,loc,class)%>%
+    summarize(value_mean=mean(value))%>%
+    ungroup%>%
+  pivot_wider(id_cols=c("replicate","loc"), names_from="class",values_from="value_mean")%>%
+  group_by(replicate,loc,Parturition,Pregnancy)%>%
+  mutate(Recruitment=rnorm(1,mean=0.42,sd=0.03),
+         Survival=(Recruitment*0.84)/Parturition)%>%
+  pivot_longer(cols=c("Parturition","Pregnancy","Recruitment", "Survival"))%>%
+    filter(loc%in%"P" & name%in%"Survival")%>%
+  mutate(loc="W2")%>%
+  filter(value<=1))
   
   
 calf.rates.plot <- calf.dem.dat%>%
@@ -978,8 +1051,9 @@ calf.rates.plot <- calf.dem.dat%>%
 calf.surv.comp.plot <- calf.dem.dat%>%
     filter(name%in%"Survival")%>%
   mutate(Location=case_when(loc%in%"P"~"Penned",
-                          loc%in%"W"~"Unpenned"),
-         Location=fct_relevel(Location,"Penned","Unpenned"))%>%
+                          loc%in%"W"~"Unpenned",
+                          loc%in%"W2"~"Unpenned \n (w/ pen parturition)"),
+         Location=fct_relevel(Location,"Penned","Unpenned","Unpenned (use pen part.)"))%>%
   ggplot(aes(x=Location, y=value, fill=Location, color=Location))+
   geom_violin(size=2, trim=TRUE)+
   stat_summary(fun.y=mean, geom="point", shape=20, size=5, color="black") +
@@ -1010,22 +1084,13 @@ calf.dem.dat%>%
             lower=quantile(value,0.025),
             upper=quantile(value,0.975))
   
+summary(survfit(Surv(dur, dead2)~ 1, data = calf_surv%>%filter(dur>0)), times = 300)
 ```
 
 
-## Get data for Avalanches (not run on git, requires some manual moving of tifs, loaded below)
-```{r Avalanches data, eval=FALSE, message=FALSE, warning=FALSE}
 
-#https://avalanche.org/wp-content/uploads/2018/08/06_TAR_McCollisterBirkeland.pdf
-#https://www.pc.gc.ca/en/pn-np/mtn/securiteenmontagne-mountainsafety/avalanche/echelle-ratings#scale
-
-##get slope
-##canopy
-#roughness
-library(rgee)
-library(sf)
-library(raster)
-ee_Initialize(email="lamb.eco.research@gmail.com")
+## Prep telem data to extract avalanche area to
+```{r Avalanches extent prep, message=FALSE, warning=FALSE}
 st_erase = function(x, y) st_difference(x, st_union(st_combine(y)))
 
 ##load collars
@@ -1057,6 +1122,18 @@ towns <- tribble(~name,~lat,~long,
 mcnay <- mcnay%>%
   filter(!locn_id%in%c(106995, 32280,1035040))%>%
   st_erase(towns%>%st_as_sf%>%st_buffer(1000))
+```
+
+## Get data for Avalanches (not run on git, requires some manual moving of tifs, loaded below)
+```{r Avalanches data, eval=FALSE, message=FALSE, warning=FALSE}
+#https://avalanche.org/wp-content/uploads/2018/08/06_TAR_McCollisterBirkeland.pdf
+#https://www.pc.gc.ca/en/pn-np/mtn/securiteenmontagne-mountainsafety/avalanche/echelle-ratings#scale
+
+##get slope
+##canopy
+#roughness
+ee_Initialize(email="lamb.eco.research@gmail.com")
+
 
 poly <- sf_as_ee(st_bbox(mcnay)%>%st_as_sfc%>%st_buffer(10000)%>%st_transform(4326))
 
@@ -1070,7 +1147,7 @@ palette = c("#000004FF","#781C6DFF","#ED6925FF","#FCFFA4FF")
 ##get layerselev <-
 elev <-ee$
   Image('USGS/SRTMGL1_003')$
-  select('elevation')$
+  dplyr::select('elevation')$
   clip(poly)
 
 slope <- ee$Terrain$slope(elev)$
@@ -1078,19 +1155,19 @@ slope <- ee$Terrain$slope(elev)$
 
 topo.diver <- ee$
   Image('CSP/ERGo/1_0/Global/SRTM_topoDiversity')$
-  select('constant')$
+  dplyr::select('constant')$
   clip(poly)
 
 cc <- ee$
   ImageCollection('NASA/MEASURES/GFCC/TC/v3')$
-  select('tree_canopy_cover')$
+  dplyr::select('tree_canopy_cover')$
   filterDate("2010-01-01","2015-12-31")$
   mean()$
   clip(poly)
 
 cc2 <- ee$
   ImageCollection("MODIS/006/MOD44B")$
-  select("Percent_Tree_Cover")$
+  dplyr::select("Percent_Tree_Cover")$
     filterDate("2014-01-01", "2020-12-31")$
     mean()$
     clip(poly)
@@ -1142,18 +1219,18 @@ ee_monitoring(eeTaskList=TRUE)
 ## Prep avalanche layers
 ```{r Avalanches prep,message=FALSE, warning=FALSE}
 ##load rasters
-rastlist <- list.files(path =here::here("data","spatial","avalanche"), pattern='.tif$', all.files=TRUE, full.names=TRUE)
-allrasters <- stack(rastlist)
-plot(allrasters)
+rastlist <- list.files(path=here::here("data","spatial","avalanche"), pattern='.tif$', all.files=TRUE, full.names=TRUE)
+allrasters <- raster::stack(rastlist)
+raster::plot(allrasters)
 
 ##fix NA's in cc
-values(allrasters[["cc"]])[is.na(values(allrasters[["cc"]]))] <- 0
+raster::values(allrasters[["cc"]])[is.na(raster::values(allrasters[["cc"]]))] <- 0
 
 ##make avy risk layer
 ##start by reclassing
 allrasters.reclass <- allrasters
 
-allrasters.reclass[["cc"]] <- reclassify(allrasters.reclass[["cc"]],
+allrasters.reclass[["cc"]] <- raster::reclassify(allrasters.reclass[["cc"]],
                      matrix(c(-Inf, 5, 3,
                               5, 30, 2,
                               30, Inf, 1),
@@ -1163,7 +1240,7 @@ allrasters.reclass[["cc"]] <- reclassify(allrasters.reclass[["cc"]],
 #plot(allrasters.reclass[["cc"]])
 
 
-allrasters.reclass[["slope"]] <- reclassify(allrasters.reclass[["slope"]],
+allrasters.reclass[["slope"]] <- raster::reclassify(allrasters.reclass[["slope"]],
                      matrix(c(-Inf, 25, 1,
                               30, 45, 3,
                               25, 30, 2,
@@ -1172,7 +1249,7 @@ allrasters.reclass[["slope"]] <- reclassify(allrasters.reclass[["slope"]],
                 byrow = TRUE))
 #plot(allrasters.reclass[["slope"]])
 
-allrasters.reclass[["topo.diver"]] <- reclassify(allrasters.reclass[["topo.diver"]],
+allrasters.reclass[["topo.diver"]] <- raster::reclassify(allrasters.reclass[["topo.diver"]],
                      matrix(c(-Inf, 0.33, 1,
                               0.33, 0.66, 2,
                               0.66, Inf, 3),
@@ -1182,7 +1259,7 @@ allrasters.reclass[["topo.diver"]] <- reclassify(allrasters.reclass[["topo.diver
 #plot(allrasters.reclass[["topo.diver"]])
 
 
-avy <- calc(allrasters.reclass, sum)/3
+avy <- raster::calc(allrasters.reclass, sum)/3
 
 ##make anything with a slope of <3 (lakes etc, a 1)
 slope0 <- allrasters[["slope"]]
@@ -1190,12 +1267,12 @@ slope0 <- (slope0<3)*100
 
 
 avy <- slope0+avy
-values(avy)[values(avy)>50] <- 1
+raster::values(avy)[raster::values(avy)>50] <- 1
 ```
 
 ## Plot Avalanche map
 ```{r Avalanches map,  message=FALSE, warning=FALSE}
-plot(avy)
+raster::plot(avy)
 ```
 
 ##  Add avalanche data to telemetry and then to survival
